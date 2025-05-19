@@ -1,5 +1,5 @@
 /model_cache/
 /__pycache__/
 /parsers/__pycache__/
-
+/.gradio/
 a.py

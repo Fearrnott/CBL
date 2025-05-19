@@ -74,7 +74,7 @@ def predict(file, model_name, model_version, threshold=0.5, nitro=False):
 
     fg_list = result[0]["positive_targets"]
     probs = result[0]["positive_probabilities"]
-    output_table = [[fg, round(float(p), 4)] for fg, p in zip(fg_list, probs)]
+    output_table = sorted([[fg, round(float(p), 4)] for fg, p in zip(fg_list, probs)], key=lambda x:x[1], reverse=True)
     return fig, output_table
 
 with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
