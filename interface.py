@@ -1,9 +1,9 @@
 import os
-import numpy as np
 import gradio as gr
 import plotly.graph_objects as go
 import mlflow
 import mlflow.pyfunc
+import pandas as pd
 
 from parsers.jdx import parse_jdx
 from config import AUTH_URI
@@ -41,21 +41,10 @@ def predict(file, model_name, model_version, threshold=0.5, nitro=False):
     data = parse_jdx(file.name)
     x, y = data['x'], data['y']
 
-    ## REMOVE THESE AFTER MODEL IS FIXED THIS IS ONLY TO SEE IF IT WORKS AND GIVES WRONG RESULTS
-    if x.shape[0] < 1024:
-        x = np.pad(x, (0, 1024 - x.shape[0]), 'constant')
-    else:
-        x = x[:1024]
-    if y.shape[0] < 1024:
-        y = np.pad(y, (0, 1024 - y.shape[0]), 'constant')
-    else:
-        y = y[:1024]
-    a = y.reshape(1, 1024)
-    ## UNTIL HERE
-
     # Run model
+    df = pd.DataFrame({'spectrum': [y]})
     params = {"threshold": threshold, "nitro": bool(nitro)}
-    result = model.predict(data=a, params=params)
+    result = model.predict(data=df, params=params)
 
     # Plot the spectrum
     fig = go.Figure()
