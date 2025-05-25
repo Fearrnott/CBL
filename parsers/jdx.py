@@ -1,4 +1,5 @@
 import numpy as np
+import re
 
 def parse_jdx(file_path: str) -> dict[np.ndarray, np.ndarray]:
     with open(file_path, 'r', encoding='latin1') as f:
@@ -29,10 +30,23 @@ def parse_jdx(file_path: str) -> dict[np.ndarray, np.ndarray]:
         elif line.startswith("##"):
             continue
         elif reading_data:
-            tokens = line.split()
-            if not tokens or delta_x is None:
-                continue
-            base_x = float(tokens[0])
+            raw_tokens = re.split(r"(\s+|-)", line)
+            tokens = []
+            make_negative = False
+            for token in raw_tokens:
+                token = token.strip()
+                if not token:
+                    continue
+                if token == '-':
+                    make_negative = True
+                elif token not in ('-', ''):
+                    num = float(token)
+                    if make_negative:
+                        num = -num
+                        make_negative = False
+                    tokens.append(num)
+
+            base_x = tokens[0]
             for i, y_str in enumerate(tokens[1:]):
                 x_vals.append(base_x + i * delta_x)
                 y_vals.append(float(y_str))
