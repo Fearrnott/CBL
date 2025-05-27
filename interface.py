@@ -102,7 +102,8 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
                                    "ether",
                                    "acyl halides",
                                    "amides",
-                                   "nitro"]
+                                   "nitro"],
+                        label = "Functional Groups"
                     )
                     
                 predict_btn = gr.Button("Predict")
