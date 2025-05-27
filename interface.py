@@ -21,7 +21,7 @@ def list_versions(model_name):
     versions = sorted({mv.version for mv in mvs}, key=lambda v: int(v))
     return gr.update(choices=versions, value=versions[0] if versions else None)
 
-def get_local_model_path(model_name: str, model_version: str) -> str:
+def get_local_model_path(model_name, model_version):
     local_path = os.path.join(CACHE_DIR, model_name, model_version)
     if not os.path.isdir(local_path):
         os.makedirs(local_path, exist_ok=True)
@@ -32,7 +32,7 @@ def get_local_model_path(model_name: str, model_version: str) -> str:
         )
     return local_path
 
-def predict(file, model_name, model_version, threshold=0.5, nitro=False):
+def predict(file, model_name, model_version, threshold=0.5, fn_groups=None):
     # Load the model
     mlflow.set_tracking_uri(AUTH_URI)
     local_model_path = get_local_model_path(model_name, model_version)
@@ -43,7 +43,11 @@ def predict(file, model_name, model_version, threshold=0.5, nitro=False):
 
     # Run model
     df = pd.DataFrame({'spectrum': [y]})
-    params = {"threshold": threshold, "nitro": bool(nitro)}
+    params = {"threshold": threshold}
+    if fn_groups:
+        for fg in fn_groups:
+            params[fg] = True
+
     result = model.predict(data=df, params=params)
 
     # Plot the spectrum
@@ -81,7 +85,25 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
                     )
                     model_version = gr.Dropdown(choices=[], label="Version",)
                     threshold= gr.Slider(value=0.5, label="Threshold", minimum=0, maximum=1, step=0.01)
-                    nitro = gr.Checkbox(value=False, label="Nitro")
+                    fn_groups = gr.CheckboxGroup(
+                        choices = ["alkane", 
+                                   "methyl", 
+                                   "alkene", 
+                                   "alkyne", 
+                                   "alcohols", 
+                                   "amines", 
+                                   "nitriles", 
+                                   "aromatics", 
+                                   "alkyl halides",
+                                   "esters",
+                                   "ketones",
+                                   "aldehydes",
+                                   "carboxylic acids",
+                                   "ether",
+                                   "acyl halides",
+                                   "amides",
+                                   "nitro"]
+                    )
                     
                 predict_btn = gr.Button("Predict")
 
@@ -94,7 +116,7 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
 
         predict_btn.click(
             fn=predict,
-            inputs=[spectrum, model_name, model_version, threshold, nitro],
+            inputs=[spectrum, model_name, model_version, threshold, fn_groups],
             outputs=[spectrum_image, fcn_groups_output]
         )
     
