@@ -53,4 +53,4 @@ def parse_jdx(file_path: str) -> dict[np.ndarray, np.ndarray]:
 
     x_scaled = np.array(x_vals) * x_factor
     y_scaled = np.array(y_vals) * y_factor
-    return {'x': x_scaled, 'y': y_scaled}
+    return {'spectrum_x': x_scaled, 'spectrum_y': y_scaled}

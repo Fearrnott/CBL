@@ -15,7 +15,6 @@ MLFLOW_MODEL_VERSION = os.getenv("MLFLOW_MODEL_VERSION")
 if not all([MLFLOW_DOMAIN, MLFLOW_USERNAME, MLFLOW_PASSWORD, MLFLOW_MODEL_NAME, MLFLOW_MODEL_VERSION]):
     raise EnvironmentError("One or more required MLflow environment variables are missing")
 
-# Tracking URI
 MLFLOW_TRACKING_URI = f"https://{MLFLOW_DOMAIN}"
 parsed = urlparse(MLFLOW_TRACKING_URI)
 AUTH_URI = parsed._replace(
