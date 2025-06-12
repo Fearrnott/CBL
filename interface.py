@@ -116,6 +116,52 @@ def highlight_group(selected_group: str, all_groups: list, attention: list, x: l
     )
     return fig
 
+def highlight_compare(selected_group: str, all_groups_a: list, attention_a: list, all_groups_b: list, attention_b: list, x: list, y: list):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x = x, y = y,
+        mode = 'lines',
+        name = 'IR Spectrum',
+        hovertemplate = 'Wavenumber: %{x} cm⁻¹<br>Absorbance: %{y}<extra></extra>'
+    ))
+    fig.update_layout(
+        title = 'IR Spectrum',
+        xaxis = dict(title='Wavenumber (cm⁻¹)', autorange = 'reversed'),
+        yaxis = dict(title='Absorbance'),
+        hovermode = 'closest'
+    )
+
+    if selected_group and selected_group in all_groups_a:
+        idx = all_groups_a.index(selected_group)
+        for s, e, imp in attention_a[idx]:
+            fig.add_shape(
+                type="rect",
+                x0=s,
+                x1=e,
+                y0=min(y),
+                y1=max(y),
+                fillcolor=f"rgba(0,125,0,{imp/2})",
+                line=dict(width=0),
+                layer="below",
+            )
+
+    if selected_group and selected_group in all_groups_b:
+        idx = all_groups_b.index(selected_group)
+        for s, e, imp in attention_b[idx]:
+            fig.add_shape(
+                type="rect",
+                x0=s,
+                x1=e,
+                y0=min(y),
+                y1=max(y),
+                fillcolor=f"rgba(125,0,0,{imp/2})",
+                line=dict(width=0),
+                layer="below",
+            )
+
+    fig.update_layout(title=f"Comparison — {selected_group}")
+    return fig
+
 with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
     with gr.Tab("Predict"):
         with gr.Row():
@@ -169,38 +215,73 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
                 model_a_name = gr.Dropdown(choices=model_list, value=model_list[0] if model_list else None, label="Model A")
                 model_a_version = gr.Dropdown(choices=[], label="Version A")
                 threshold_a = gr.Slider(value=0.5, label="Threshold A", minimum=0, maximum=1, step=0.01)
-                nitro_a = gr.Checkbox(value=False, label="Nitro A")
-
+                fn_groups_a = gr.CheckboxGroup(
+                        choices = ["alkane","methyl","alkene","alkyne","alcohols","amines","nitriles","aromatics","alkyl halides","esters","ketones","aldehydes","carboxylic acids","ether","acyl halides","amides","nitro"],
+                        label = "Functional Groups"
+                    )
+                
                 gr.Markdown("### Model B Settings")
                 model_b_name = gr.Dropdown(choices=model_list, value=model_list[0] if model_list else None, label="Model B")
                 model_b_version = gr.Dropdown(choices=[], label="Version B")
                 threshold_b = gr.Slider(value=0.5, label="Threshold B", minimum=0, maximum=1, step=0.01)
-                nitro_b = gr.Checkbox(value=False, label="Nitro B")
-
+                fn_groups_b = gr.CheckboxGroup(
+                        choices = ["alkane","methyl","alkene","alkyne","alcohols","amines","nitriles","aromatics","alkyl halides","esters","ketones","aldehydes","carboxylic acids","ether","acyl halides","amides","nitro"],
+                        label = "Functional Groups"
+                    )
+                
                 compare_btn = gr.Button("Compare")
 
             with gr.Column(scale=2):
                 gr.Markdown("### Comparison Output")
+                group_dropdown_cmp = gr.Dropdown(choices = [], value = None, allow_custom_value = True, label = "Select Functional Group", interactive = True)
                 spectrum_image_cmp = gr.Plot(label = "Spectrum Comparison")
                 fcn_groups_cmp = gr.Dataframe(label = "Functional Groups Comparison", headers = ["Group A", "Prob A", "Group B", "Prob B"], datatype=["str","number","str","number"])
+
+        attn_a_state = gr.State()
+        attn_b_state = gr.State()
+        groups_a_state = gr.State()
+        groups_b_state = gr.State()
+        x_cmp_state = gr.State()
+        y_cmp_state = gr.State()
 
         model_a_name.change(fn = list_versions, inputs = model_a_name, outputs = model_a_version)
         model_b_name.change(fn = list_versions, inputs = model_b_name, outputs = model_b_version)
 
-        def compare_models(file, a_name, a_version, a_thr, b_name, b_version, b_thr):
-            fig_a, table_a = predict(file, a_name, a_version, a_thr)
-            _, table_b = predict(file, b_name, b_version, b_thr)
+        def compare_models(file, a_name, a_version, a_thr, fn_groups_a, b_name, b_version, b_thr, fn_groups_b):
+            _, _, attn_a, x, y, table_a, groups_a = predict(file, a_name, a_version, a_thr, fn_groups_a)
+            _, _, attn_b, _, _, table_b, groups_b  = predict(file, b_name, b_version, b_thr, fn_groups_b)
 
-            combined = [[r[0], r[1], s[0] if idx<len(s) else None, s[1] if idx<len(s) else None]
-                        for idx, (r, s) in enumerate(zip(table_a, table_b))]
-            return fig_a, combined
+            max_len = max(len(table_a), len(table_b))
+            table_a += [[None, None]] * (max_len - len(table_a))
+            table_b += [[None, None]] * (max_len - len(table_b))
+            combined = [[r[0], r[1], s[0], s[1]] for r, s in zip(table_a, table_b)]
+            fig_base = _fig = go.Figure()
+            fig_base.add_trace(go.Scatter(
+                x = x, y = y,
+                mode = 'lines',
+                name = 'IR Spectrum',
+                hovertemplate = 'Wavenumber: %{x} cm⁻¹<br>Absorbance: %{y}<extra></extra>'
+            ))
+            fig_base.update_layout(
+                title = 'IR Spectrum',
+                xaxis = dict(title='Wavenumber (cm⁻¹)', autorange = 'reversed'),
+                yaxis = dict(title='Absorbance'),
+                hovermode = 'closest'
+            )
+            return fig_base, combined, attn_a, attn_b, groups_a, groups_b, x, y, gr.update(choices=list(set(groups_a + groups_b)), value=None)
 
         compare_btn.click(
-            fn = compare_models,
-            inputs = [spectrum_cmp, model_a_name, model_a_version, threshold_a, nitro_a,
-                    model_b_name, model_b_version, threshold_b, nitro_b],
-            outputs = [spectrum_image_cmp, fcn_groups_cmp]
+            fn=compare_models,
+            inputs=[spectrum_cmp, model_a_name, model_a_version, threshold_a, fn_groups_a, model_b_name, model_b_version, threshold_b, fn_groups_b],
+            outputs=[spectrum_image_cmp, fcn_groups_cmp, attn_a_state, attn_b_state, groups_a_state, groups_b_state, x_cmp_state, y_cmp_state, group_dropdown_cmp],
         )
+            
+        group_dropdown_cmp.change(
+            fn=highlight_compare,
+            inputs=[group_dropdown_cmp, groups_a_state, attn_a_state, groups_b_state, attn_b_state, x_cmp_state, y_cmp_state],
+            outputs=[spectrum_image_cmp]
+        )
+
 
 if __name__ == "__main__":
     interface.launch(share=False)

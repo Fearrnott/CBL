@@ -3,7 +3,7 @@ from urllib.parse import urlparse, quote
 from dotenv import load_dotenv
 load_dotenv()
 
-# Ensure the following variables are set in your environment:
+# Ensure the following variables are set in the environment:
 # MLFLOW_DOMAIN, MLFLOW_USERNAME, MLFLOW_PASSWORD, MLFLOW_MODEL_NAME, MLFLOW_MODEL_VERSION
 
 MLFLOW_DOMAIN = os.getenv("MLFLOW_DOMAIN")
