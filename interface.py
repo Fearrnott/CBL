@@ -32,7 +32,7 @@ def get_local_model_path(model_name: str, model_version: str) -> str:
         )
     return local_path
 
-def predict(file: gr.File, model_name: str, model_version: str, threshold: float = 0.5, fn_groups: list = None):
+def predict(file: gr.File, model_name: str, model_version: str, threshold: float = 0.5):
     mlflow.set_tracking_uri(AUTH_URI)
     local_model_path = get_local_model_path(model_name, model_version)
     model = mlflow.pyfunc.load_model(local_model_path)
@@ -42,9 +42,6 @@ def predict(file: gr.File, model_name: str, model_version: str, threshold: float
     df = pd.DataFrame([{'spectrum_x': x, 'spectrum_y': y}])
 
     params = {"threshold": threshold}
-    if fn_groups:
-        for fg in fn_groups:
-            params[fg] = True
 
     result = model.predict(data = df, params = params)
     attention = result[0]["attention"]
@@ -173,10 +170,6 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
                     model_name = gr.Dropdown(choices = model_list, value = model_list[0] if model_list else None, label = "Model")
                     model_version = gr.Dropdown(choices = [], label = "Version")
                     threshold= gr.Slider(value = 0.5, label = "Threshold", minimum = 0, maximum = 1, step = 0.01)
-                    fn_groups = gr.CheckboxGroup(
-                        choices = ["alkane","methyl","alkene","alkyne","alcohols","amines","nitriles","aromatics","alkyl halides","esters","ketones","aldehydes","carboxylic acids","ether","acyl halides","amides","nitro"],
-                        label = "Functional Groups"
-                    )
                 predict_btn = gr.Button("Predict")
 
             with gr.Column(scale=2):
@@ -194,7 +187,7 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
     
         predict_btn.click(
             fn = predict,
-            inputs = [spectrum, model_name, model_version, threshold, fn_groups],
+            inputs = [spectrum, model_name, model_version, threshold],
             outputs = [group_dropdown, spectrum_image, attention_state, x_state, y_state, fcn_groups_output, all_groups_state]
         )
 
@@ -215,19 +208,11 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
                 model_a_name = gr.Dropdown(choices=model_list, value=model_list[0] if model_list else None, label="Model A")
                 model_a_version = gr.Dropdown(choices=[], label="Version A")
                 threshold_a = gr.Slider(value=0.5, label="Threshold A", minimum=0, maximum=1, step=0.01)
-                fn_groups_a = gr.CheckboxGroup(
-                        choices = ["alkane","methyl","alkene","alkyne","alcohols","amines","nitriles","aromatics","alkyl halides","esters","ketones","aldehydes","carboxylic acids","ether","acyl halides","amides","nitro"],
-                        label = "Functional Groups"
-                    )
-                
+
                 gr.Markdown("### Model B Settings")
                 model_b_name = gr.Dropdown(choices=model_list, value=model_list[0] if model_list else None, label="Model B")
                 model_b_version = gr.Dropdown(choices=[], label="Version B")
                 threshold_b = gr.Slider(value=0.5, label="Threshold B", minimum=0, maximum=1, step=0.01)
-                fn_groups_b = gr.CheckboxGroup(
-                        choices = ["alkane","methyl","alkene","alkyne","alcohols","amines","nitriles","aromatics","alkyl halides","esters","ketones","aldehydes","carboxylic acids","ether","acyl halides","amides","nitro"],
-                        label = "Functional Groups"
-                    )
                 
                 compare_btn = gr.Button("Compare")
 
@@ -247,9 +232,9 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
         model_a_name.change(fn = list_versions, inputs = model_a_name, outputs = model_a_version)
         model_b_name.change(fn = list_versions, inputs = model_b_name, outputs = model_b_version)
 
-        def compare_models(file, a_name, a_version, a_thr, fn_groups_a, b_name, b_version, b_thr, fn_groups_b):
-            _, _, attn_a, x, y, table_a, groups_a = predict(file, a_name, a_version, a_thr, fn_groups_a)
-            _, _, attn_b, _, _, table_b, groups_b  = predict(file, b_name, b_version, b_thr, fn_groups_b)
+        def compare_models(file, a_name, a_version, a_thr, b_name, b_version, b_thr):
+            _, _, attn_a, x, y, table_a, groups_a = predict(file, a_name, a_version, a_thr)
+            _, _, attn_b, _, _, table_b, groups_b  = predict(file, b_name, b_version, b_thr)
 
             max_len = max(len(table_a), len(table_b))
             table_a += [[None, None]] * (max_len - len(table_a))
@@ -272,7 +257,7 @@ with gr.Blocks(title="IR Spectrum Functional Group Predictor") as interface:
 
         compare_btn.click(
             fn=compare_models,
-            inputs=[spectrum_cmp, model_a_name, model_a_version, threshold_a, fn_groups_a, model_b_name, model_b_version, threshold_b, fn_groups_b],
+            inputs=[spectrum_cmp, model_a_name, model_a_version, threshold_a, model_b_name, model_b_version, threshold_b],
             outputs=[spectrum_image_cmp, fcn_groups_cmp, attn_a_state, attn_b_state, groups_a_state, groups_b_state, x_cmp_state, y_cmp_state, group_dropdown_cmp],
         )
             
